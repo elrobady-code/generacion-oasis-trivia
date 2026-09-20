@@ -11,7 +11,7 @@ app.use(express.static(__dirname));
 let salas = {};
 
 io.on('connection', (socket) => {
-    // Crear sala con la lista de 20 preguntas enviadas por el host
+    // Crear sala con la lista de preguntas enviadas por el host
     socket.on('crearSala', (data) => {
         const { codigo, listaPreguntas } = data;
         
@@ -37,7 +37,7 @@ io.on('connection', (socket) => {
         const salaUpper = codigo.toUpperCase();
 
         if (salas[salaUpper]) {
-            salas[salaUpper].jugadores[socket.id] = { nombre, avatar, puntaje: 0 };
+            salas[salaUpper].jugadores[socket.id] = { nombre, avatar, puntaje: 0, racha: 0 };
             socket.join(salaUpper);
             socket.emit('unidoExito', salaUpper);
             
@@ -72,11 +72,36 @@ io.on('connection', (socket) => {
 
                     if (sala.tiempoRestante <= 0) {
                         clearInterval(sala.intervaloPregunta);
+                        
+                        // Evaluar respuestas y rachas al finalizar el tiempo
+                        Object.keys(sala.jugadores).forEach((idSocket) => {
+                            const jugador = sala.jugadores[idSocket];
+                            const respuesta = sala.respuestasEstaRonda[idSocket];
+
+                            if (respuesta && respuesta.opcionIndex === preguntaActual.correcta) {
+                                jugador.racha += 1;
+                                const bonusRacha = jugador.racha * 50;
+                                const puntosGanados = 500 + (respuesta.tiempoRestante * 30) + bonusRacha;
+                                jugador.puntaje += Math.round(puntosGanados);
+                            } else {
+                                jugador.racha = 0; // Se pierde la racha al fallar o no contestar
+                            }
+                        });
+
+                        const numeroPreguntaEvaluada = sala.indicePregunta + 1;
+                        const esCada5 = (numeroPreguntaEvaluada % 5 === 0);
+                        const ranking = Object.values(sala.jugadores).sort((a, b) => b.puntaje - a.puntaje);
+
                         io.to(codigo).emit('finTiempo', {
                             correcta: preguntaActual.correcta,
-                            puntajes: sala.jugadores
+                            jugadores: sala.jugadores,
+                            respuestasEstaRonda: sala.respuestasEstaRonda,
+                            ranking: ranking,
+                            esCada5: esCada5,
+                            numeroPregunta: numeroPreguntaEvaluada
                         });
-                        sala.indicePregunta++; // Incrementa al agotarse los 15s
+
+                        sala.indicePregunta++; // Incrementa para la siguiente ronda
                     }
                 }, 1000);
 
@@ -87,22 +112,13 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Procesar la respuesta del celular
+    // Guardar la respuesta del celular sin evaluar inmediatamente
     socket.on('enviarRespuesta', (data) => {
         const { codigo, opcionIndex, tiempoRestante } = data;
         const sala = salas[codigo];
         
         if (sala && sala.jugadores[socket.id] && !sala.respuestasEstaRonda[socket.id]) {
-            sala.respuestasEstaRonda[socket.id] = true;
-            const preguntaActual = sala.preguntas[sala.indicePregunta];
-
-            const esCorrecta = (opcionIndex === preguntaActual.correcta);
-            if (esCorrecta) {
-                const puntosGanados = 500 + (tiempoRestante * 33);
-                sala.jugadores[socket.id].puntaje += Math.round(puntosGanados);
-            }
-
-            socket.emit('resultadoIndividual', esCorrecta);
+            sala.respuestasEstaRonda[socket.id] = { opcionIndex, tiempoRestante };
             io.to(sala.host).emit('actualizarProgresoRespuestas', Object.keys(sala.respuestasEstaRonda).length);
         }
     });
