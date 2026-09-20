@@ -3,315 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generación Oasis - Trivia Bíblica</title>
+    <title>Generación Oasis - Trivia Bíblica 🌿</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1abc9c; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        .card { background: white; width: 100%; max-width: 450px; padding: 25px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); text-align: center; box-sizing: border-box; }
-        h1 { color: #2c3e50; font-size: 22px; margin-bottom: 5px; }
-        p { color: #7f8c8d; font-size: 13px; margin-bottom: 20px; }
-        button { width: 100%; padding: 14px; margin: 8px 0; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .btn-principal { background: #27ae60; color: white; }
-        .btn-secundario { background: #2980b9; color: white; }
-        button:hover { opacity: 0.9; transform: translateY(-2px); }
-        input { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border: 2px solid #bdc3c7; border-radius: 8px; box-sizing: border-box; text-align: center; }
-        .oculto { display: none !important; }
-        
-        .grid-avatares { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
-        .avatar-opcion { background: #ecf0f1; border: 2px solid transparent; border-radius: 8px; padding: 6px; cursor: pointer; }
-        .avatar-opcion.seleccionado { border-color: #27ae60; background: #e8f8f5; }
-
-        /* Estilos de Juego y Pantalla Grande Host */
-        .pantalla-juego { max-width: 700px !important; width: 95% !important; text-align: left; }
-        .grid-opciones-host { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
-        .opcion-host { padding: 15px; border-radius: 10px; font-weight: bold; color: white; font-size: 16px; display: flex; align-items: center; }
-        #opt0 { background: #e21b3c; }
-        #opt1 { background: #1368ce; }
-        #opt2 { background: #d89e00; }
-        #opt3 { background: #26890c; }
-        .opcion-host.tenue { opacity: 0.4; }
-
-        /* Consola de botones del celular */
-        .grid-respuestas { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; margin-top: 15px; height: 280px; }
-        .btn-resp { border: none; font-size: 40px; color: white; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 100%; }
-        #resp0 { background: #e21b3c; }
-        #resp1 { background: #1368ce; }
-        #resp2 { background: #d89e00; }
-        #resp3 { background: #26890c; }
-        .btn-resp.desactivado { background: #95a5a6 !important; opacity: 0.5; pointer-events: none; }
-
-        /* Animación de Podio */
-        @keyframes subirPodio { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .podio-container { animation: subirPodio 0.8s ease-out forwards; display: flex; justify-content: center; align-items: flex-end; gap: 15px; height: 220px; margin: 20px 0; }
-        .podio-columna { background: #ecf0f1; width: 90px; border-radius: 8px 8px 0 0; display: flex; flex-direction: column; align-items: center; padding-bottom: 10px; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-    <!-- 1. MENÚ INICIAL -->
-    <div class="card" id="vistaMenu">
-        <h1>🌿 GENERACIÓN OASIS</h1>
-        <p>Trivia Bíblica Interactiva</p>
-        <button class="btn-principal" onclick="mostrarVista('vistaCrear')">CREAR SALA (Anfitrión)</button>
-        <button class="btn-secundario" onclick="mostrarVista('vistaUnirse')">UNIRME A UNA SALA</button>
-    </div>
-
-    <!-- 2. CREAR SALA -->
-    <div class="card oculto" id="vistaCrear">
-        <h1>Configurar Partida</h1>
-        <p>Listo para iniciar la conexión</p>
-        <button class="btn-principal" onclick="crearSalaPartida()">GENERAR CÓDIGO DE SALA</button>
-        <button onclick="mostrarVista('vistaMenu')" style="background: #95a5a6; color: white;">Volver</button>
-    </div>
-
-    <!-- 3. SALA DE ESPERA HOST -->
-    <div class="card oculto" id="vistaHostEsperando">
-        <h1>Código de Sala</h1>
-        <div id="codigoMostrado" style="font-size: 48px; font-weight: bold; color: #e67e22; letter-spacing: 5px; margin: 10px 0;">----</div>
-        <p>Esperando participantes en sus celulares...</p>
-        <div id="listaJugadoresHost" style="max-height: 120px; overflow-y: auto; margin-bottom: 15px; font-weight: bold; color: #34495e; text-align: left; background: #f8f9fa; padding: 10px; border-radius: 6px;"></div>
-        <button class="btn-principal" onclick="iniciarJuegoHost()">COMENZAR PARTIDA</button>
-    </div>
-
-    <!-- 4. PANTALLA DE PREGUNTA EN VIVO (HOST / PROYECTOR) -->
-    <div class="card oculto pantalla-juego" id="vistaHostJuego">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <span id="contadorPreguntaHost" style="font-weight: bold; color: #7f8c8d;">Pregunta 1</span>
-            <div id="relojHost" style="font-size: 24px; font-weight: bold; background: #e74c3c; color: white; padding: 5px 15px; border-radius: 20px;">15s</div>
-        </div>
-        <h2 id="preguntaHostTexto" style="color: #2c3e50; font-size: 22px; text-align: center; margin-bottom: 20px;">Cargando...</h2>
-        <div class="grid-opciones-host">
-            <div class="opcion-host" id="optHost0">▲ <span id="txtOpt0" style="margin-left: 8px;"></span></div>
-            <div class="opcion-host" id="optHost1">◆ <span id="txtOpt1" style="margin-left: 8px;"></span></div>
-            <div class="opcion-host" id="optHost2">● <span id="txtOpt2" style="margin-left: 8px;"></span></div>
-            <div class="opcion-host" id="optHost3">■ <span id="txtOpt3" style="margin-left: 8px;"></span></div>
-        </div>
-        <p id="progresoRespuestasText" style="text-align: center; font-weight: bold; color: #16a085;">Respuestas recibidas: 0</p>
-        <button class="btn-principal oculto" id="btnSiguienteHost" onclick="siguientePreguntaHost()">SIGUIENTE PREGUNTA</button>
-    </div>
-
-    <!-- 5. UNIRSE A SALA (JUGADOR) -->
-    <div class="card oculto" id="vistaUnirse">
-        <h1>Unirme a Sala</h1>
-        <input type="text" id="txtCodigo" placeholder="CÓDIGO (4 letras)" maxlength="4" style="text-transform: uppercase;">
-        <input type="text" id="txtNombre" placeholder="TU NOMBRE" maxlength="15">
-        <div style="font-size: 12px; font-weight: bold; color: #34495e; text-align: left;">Elige tu avatar (Melki y amigos):</div>
-        <div class="grid-avatares" id="gridAvatares"></div>
-        <button class="btn-principal" onclick="unirseSalaPartida()">ENTRAR AL JUEGO</button>
-        <button onclick="mostrarVista('vistaMenu')" style="background: #95a5a6; color: white;">Volver</button>
-    </div>
-
-    <!-- 6. ESPERA JUGADOR -->
-    <div class="card oculto" id="vistaJugadorEspera">
-        <h1>¡Estás dentro! 🌿</h1>
-        <p>Mira la pantalla principal, el juego está a punto de empezar.</p>
-    </div>
-
-    <!-- 7. CONSOLA DE BOTONES DEL JUGADOR (CELULAR) -->
-    <div class="card oculto" id="vistaJugadorConsola" style="height: 100vh; max-width: 100%; border-radius: 0; display: flex; flex-direction: column; justify-content: center;">
-        <div id="preguntaCelular" style="font-weight: bold; font-size: 16px; color: #2c3e50; margin-bottom: 10px;">¡Elige tu respuesta rápido!</div>
-        <div id="relojCelular" style="font-size: 18px; color: #e74c3c; font-weight: bold; margin-bottom: 15px;">15s</div>
-        <div class="grid-respuestas">
-            <button class="btn-resp" id="resp0" onclick="enviarRespuesta(0)">▲</button>
-            <button class="btn-resp" id="resp1" onclick="enviarRespuesta(1)">◆</button>
-            <button class="btn-resp" id="resp2" onclick="enviarRespuesta(2)">●</button>
-            <button class="btn-resp" id="resp3" onclick="enviarRespuesta(3)">■</button>
-        </div>
-    </div>
-
-    <!-- 8. PANTALLA DE PODIO FINAL (HOST) -->
-    <div class="card oculto" id="vistaPodio" style="max-width: 600px;">
-        <h1 style="color: #f1c40f; font-size: 28px;">🏆 PODIO FINAL - GENERACIÓN OASIS 🏆</h1>
-        <p>¡Gracias por participar en esta gran aventura bíblica!</p>
-        <div class="podio-container" id="contenedorPodio"></div>
-        <button class="btn-principal" onclick="location.reload()">VOLVER AL MENÚ</button>
-    </div>
-
-    <script src="preguntas.js"></script>
-    <script>
-        const socket = io();
-        let codigoSalaActual = '';
-        let avatarSeleccionado = null;
-        let tiempoActualCelular = 15;
-        let esHost = false;
-
-        const avatares = ['🧭', '📖', '🌿', '🛡️', '🔥', '🕊️', '🍞', '💡'];
-
-        function inicializarAvatares() {
-            const grid = document.getElementById('gridAvatares');
-            grid.innerHTML = avatares.map((emoji, idx) => `
-                <div class="avatar-opcion" onclick="selAvatar(${idx}, '${emoji}')" id="av-${idx}">
-                    <div style="font-size: 22px;">${emoji}</div>
-                </div>
-            `).join('');
-        }
-        window.onload = inicializarAvatares;
-
-        function selAvatar(idx, emoji) {
-            document.querySelectorAll('.avatar-opcion').forEach(el => el.classList.remove('seleccionado'));
-            document.getElementById(`av-${idx}`).classList.add('seleccionado');
-            avatarSeleccionado = emoji;
-        }
-
-        function mostrarVista(idVista) {
-            document.querySelectorAll('.card').forEach(el => el.classList.add('oculto'));
-            document.getElementById(idVista).classList.remove('oculto');
-        }
-
-        function generarCodigoAleatorio() {
-            const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            let codigo = '';
-            for (let i = 0; i < 4; i++) codigo += letras.charAt(Math.floor(Math.random() * letras.length));
-            return codigo;
-        }
-
-        // --- ACCIONES ANFITRIÓN (HOST) ---
-        function crearSalaPartida() {
-            codigoSalaActual = generarCodigoAleatorio();
-            document.getElementById('codigoMostrado').innerText = codigoSalaActual;
-            esHost = true;
-            
-            socket.emit('crearSala', {
-                codigo: codigoSalaActual,
-                listaPreguntas: typeof preguntas !== 'undefined' ? preguntas : []
-            });
-
-            mostrarVista('vistaHostEsperando');
-        }
-
-        function iniciarJuegoHost() {
-            socket.emit('siguientePregunta', codigoSalaActual);
-        }
-
-        function siguientePreguntaHost() {
-            document.getElementById('btnSiguienteHost').classList.add('oculto');
-            socket.emit('siguientePregunta', codigoSalaActual);
-        }
-
-        socket.on('actualizarListaJugadores', (jugadores) => {
-            const contenedor = document.getElementById('listaJugadoresHost');
-            contenedor.innerHTML = Object.values(jugadores).map(j => `<div>${j.avatar} ${j.nombre}</div>`).join('');
-        });
-
-        // --- FLUJO DE PREGUNTA COMPARTIDA ---
-        socket.on('lanzarPregunta', (data) => {
-            tiempoActualCelular = data.tiempo;
-
-            if (esHost) {
-                mostrarVista('vistaHostJuego');
-                document.getElementById('contadorPreguntaHost').innerText = `Pregunta ${data.indice + 1} de ${data.total}`;
-                document.getElementById('preguntaHostTexto').innerText = data.pregunta;
-                document.getElementById('progresoRespuestasText').innerText = "Respuestas recibidas: 0";
-                
-                for(let i=0; i<4; i++) {
-                    document.getElementById(`txtOpt${i}`).innerText = data.opciones[i];
-                    document.getElementById(`optHost${i}`).classList.remove('tenue');
-                }
-            } else {
-                mostrarVista('vistaJugadorConsola');
-                document.getElementById('preguntaCelular').innerText = "¡Elige tu respuesta!";
-                for(let i=0; i<4; i++) {
-                    document.getElementById('resp' + i).classList.remove('desactivado');
-                }
-            }
-        });
-
-        socket.on('actualizarTiempo', (tiempo) => {
-            tiempoActualCelular = tiempo;
-            if (esHost) {
-                document.getElementById('relojHost').innerText = tiempo + "s";
-            } else {
-                document.getElementById('relojCelular').innerText = tiempo + "s";
-            }
-        });
-
-        socket.on('actualizarProgresoRespuestas', (count) => {
-            if (esHost) {
-                document.getElementById('progresoRespuestasText').innerText = `Respuestas recibidas: ${count}`;
-            }
-        });
-
-        // --- ACCIÓN JUGADOR ---
-        function enviarRespuesta(indice) {
-            for(let i=0; i<4; i++) {
-                document.getElementById('resp' + i).classList.add('desactivado');
-            }
-            document.getElementById('preguntaCelular').innerText = "¡Respuesta enviada! Esperando tiempo...";
-            socket.emit('enviarRespuesta', { codigo: codigoSalaActual, opcionIndex: indice, tiempoRestante: tiempoActualCelular });
-        }
-
-        // --- FIN DE TIEMPO / REVELAR RESPUESTA ---
-        socket.on('finTiempo', (data) => {
-            if (esHost) {
-                document.getElementById('relojHost').innerText = "¡Tiempo!";
-                for(let i=0; i<4; i++) {
-                    if(i !== data.correcta) {
-                        document.getElementById(`optHost${i}`).classList.add('tenue');
-                    }
-                }
-                document.getElementById('btnSiguienteHost').classList.remove('oculto');
-            } else {
-                document.getElementById('preguntaCelular').innerText = "¡Tiempo terminado!";
-            }
-        });
-
-        // --- ACCIÓN UNIRSE ---
-        function unirseSalaPartida() {
-            const codigo = document.getElementById('txtCodigo').value.trim().toUpperCase();
-            const nombre = document.getElementById('txtNombre').value.trim();
-
-            if (codigo.length === 4 && nombre && avatarSeleccionado) {
-                esHost = false;
-                socket.emit('unirseSala', { codigo, nombre, avatar: avatarSeleccionado });
-            } else {
-                alert('Por favor completa todos los campos y selecciona un avatar.');
-            }
-        }
-
-        socket.on('unidoExito', (codigo) => {
-            codigoSalaActual = codigo;
-            mostrarVista('vistaJugadorEspera');
-        });
-
-        socket.on('errorUnirse', (msg) => { alert(msg); });
-
-        // --- PODIO FINAL ANIMADO ---
-        socket.on('juegoTerminado', (ranking) => {
-            if (esHost) {
-                mostrarVista('vistaPodio');
-                const contenedor = document.getElementById('contenedorPodio');
-                
-                let htmlPodio = '';
-                ranking.slice(0, 3).forEach((jugador, idx) => {
-                    let alturas = ['140px', '100px', '70px'];
-                    let medallas = ['🥇', '🥈', '🥉'];
-                    let colores = ['#f1c40f', '#bdc3c7', '#e67e22'];
-                    
-                    htmlPodio += `
-                        <div class="podio-columna" style="height: ${alturas[idx]}; background: ${colores[idx]};">
-                            <span style="font-size: 24px;">${medallas[idx]}</span>
-                            <span style="font-size: 20px; margin-top: 5px;">${jugador.avatar}</span>
-                            <span style="font-size: 12px; color: #2c3e50; margin-top: auto; padding: 4px;">${jugador.nombre}</span>
-                            <span style="font-size: 11px; color: #7f8c8d;">${jugador.puntaje} pts</span>
-                        </div>
-                    `;
-                });
-                contenedor.innerHTML = htmlPodio;
-            } else {
-                mostrarVista('vistaJugadorEspera');
-                document.querySelector('#vistaJugadorEspera h1').innerText = "¡Juego Terminado! 🏆";
-                document.querySelector('#vistaJugadorEspera p').innerText = "Mira la pantalla principal para ver el podio de ganadores.";
-            }
-        });<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generación Oasis - Trivia Bíblica</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1abc9c; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        .card { background: white; width: 100%; max-width: 450px; padding: 25px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); text-align: center; box-sizing: border-box; }
+        .card { background: white; width: 100%; max-width: 450px; padding: 25px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); text-align: center; box-sizing: border-box; position: relative; }
         h1 { color: #2c3e50; font-size: 22px; margin-bottom: 5px; }
         p { color: #7f8c8d; font-size: 13px; margin-bottom: 20px; }
         button { width: 100%; padding: 14px; margin: 8px 0; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
@@ -324,7 +20,7 @@
         .avatar-opcion { background: #ecf0f1; border: 2px solid transparent; border-radius: 8px; padding: 6px; cursor: pointer; }
         .avatar-opcion.seleccionado { border-color: #27ae60; background: #e8f8f5; }
 
-        /* Estilos Pantalla Proyector */
+        /* Estilos Pantalla Proyector (Host) */
         .pantalla-juego { max-width: 700px !important; width: 95% !important; text-align: left; }
         .grid-opciones-host { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
         .opcion-host { padding: 15px; border-radius: 10px; font-weight: bold; color: white; font-size: 16px; display: flex; align-items: center; transition: 0.3s; }
@@ -335,14 +31,28 @@
         .opcion-host.tenue { opacity: 0.25; filter: grayscale(80%); }
         .opcion-host.correcta-resaltada { border: 4px solid #fff; box-shadow: 0 0 20px #2ecc71; transform: scale(1.03); }
 
-        /* Consola Celular */
-        .grid-respuestas { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; margin-top: 15px; height: 280px; }
-        .btn-resp { border: none; font-size: 40px; color: white; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 100%; }
+        /* Consola Celular (Jugador) */
+        .header-celular { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px 15px; border-radius: 10px; margin-bottom: 12px; font-weight: bold; color: #2c3e50; }
+        .caja-pregunta-celular { background: #34495e; color: white; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: 600; margin-bottom: 15px; line-height: 1.3; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+        .grid-respuestas-celular { display: flex; flex-direction: column; gap: 10px; }
+        .btn-resp-celular { border: none; font-size: 15px; color: white; border-radius: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; padding: 14px 16px; text-align: left; transition: transform 0.1s, opacity 0.2s; }
+        .btn-resp-celular .figura { font-size: 20px; margin-right: 12px; }
         #resp0 { background: #e21b3c; }
         #resp1 { background: #1368ce; }
         #resp2 { background: #d89e00; }
         #resp3 { background: #26890c; }
-        .btn-resp.desactivado { background: #95a5a6 !important; opacity: 0.4; pointer-events: none; }
+        .btn-resp-celular.seleccionado { border: 4px solid #f1c40f; box-shadow: 0 0 15px #f1c40f; transform: scale(1.02); }
+        .btn-resp-celular.correcta-revelada { background: #27ae60 !important; border: 3px solid #fff; }
+        .btn-resp-celular.incorrecta-revelada { background: #c0392b !important; opacity: 0.6; }
+        .btn-resp-celular.desactivado { opacity: 0.5; pointer-events: none; }
+
+        /* Animación de Racha 🔥 */
+        .overlay-racha { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f1c40f; font-size: 28px; font-weight: 900; z-index: 50; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* Tabla de Posiciones Cada 5 Preguntas 📊 */
+        .tabla-posiciones-box { background: #ecf0f1; border-radius: 12px; padding: 12px; margin: 15px 0; max-height: 220px; overflow-y: auto; text-align: left; }
+        .fila-tabla { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid #bdc3c7; font-size: 14px; font-weight: 600; color: #2c3e50; }
 
         /* Podio Final */
         @keyframes subirPodio { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -354,35 +64,35 @@
 
     <!-- 1. MENÚ INICIAL -->
     <div class="card" id="vistaMenu">
-        <h1>🌿 GENERACIÓN OASIS</h1>
-        <p>Trivia Bíblica Interactiva</p>
-        <button class="btn-principal" onclick="mostrarVista('vistaCrear')">CREAR SALA (Anfitrión)</button>
-        <button class="btn-secundario" onclick="mostrarVista('vistaUnirse')">UNIRME A UNA SALA</button>
+        <h1>🌿 GENERACIÓN OASIS 🎉</h1>
+        <p>Trivia Bíblica Interactiva ✨</p>
+        <button class="btn-principal" onclick="mostrarVista('vistaCrear')">👑 CREAR SALA (Anfitrión)</button>
+        <button class="btn-secundario" onclick="mostrarVista('vistaUnirse')">📱 UNIRME A UNA SALA</button>
     </div>
 
     <!-- 2. CREAR SALA CON SELECCIÓN DE TEMÁTICA -->
     <div class="card oculto" id="vistaCrear">
-        <h1>Configurar Partida</h1>
-        <p>Selecciona la temática del juego:</p>
+        <h1>⚙️ Configurar Partida</h1>
+        <p>Selecciona la temática del juego 📖:</p>
         <select id="selectTematica"></select>
-        <button class="btn-principal" onclick="crearSalaPartida()">GENERAR CÓDIGO DE SALA</button>
-        <button onclick="mostrarVista('vistaMenu')" style="background: #95a5a6; color: white;">Volver</button>
+        <button class="btn-principal" onclick="crearSalaPartida()">🚀 GENERAR CÓDIGO DE SALA</button>
+        <button onclick="mostrarVista('vistaMenu')" style="background: #95a5a6; color: white;">🔙 Volver</button>
     </div>
 
     <!-- 3. SALA DE ESPERA HOST -->
     <div class="card oculto" id="vistaHostEsperando">
-        <h1>Código de Sala</h1>
+        <h1>🔑 Código de Sala</h1>
         <div id="codigoMostrado" style="font-size: 48px; font-weight: bold; color: #e67e22; letter-spacing: 5px; margin: 10px 0;">----</div>
-        <p>Esperando participantes en sus celulares...</p>
+        <p>Esperando participantes en sus celulares... 📱</p>
         <div id="listaJugadoresHost" style="max-height: 120px; overflow-y: auto; margin-bottom: 15px; font-weight: bold; color: #34495e; text-align: left; background: #f8f9fa; padding: 10px; border-radius: 6px;"></div>
-        <button class="btn-principal" onclick="iniciarJuegoHost()">COMENZAR PARTIDA</button>
+        <button class="btn-principal" onclick="iniciarJuegoHost()">🔥 COMENZAR PARTIDA</button>
     </div>
 
-    <!-- 4. PANTALLA DE PREGUNTA (PROYECTOR) -->
+    <!-- 4. PANTALLA DE PREGUNTA (PROYECTOR / HOST) -->
     <div class="card oculto pantalla-juego" id="vistaHostJuego">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <span id="contadorPreguntaHost" style="font-weight: bold; color: #7f8c8d;">Pregunta 1</span>
-            <div id="relojHost" style="font-size: 24px; font-weight: bold; background: #e74c3c; color: white; padding: 5px 15px; border-radius: 20px;">15s</div>
+            <div id="relojHost" style="font-size: 24px; font-weight: bold; background: #e74c3c; color: white; padding: 5px 15px; border-radius: 20px;">⏳ 15s</div>
         </div>
         <h2 id="preguntaHostTexto" style="color: #2c3e50; font-size: 22px; text-align: center; margin-bottom: 20px;">Cargando...</h2>
         <div class="grid-opciones-host">
@@ -391,45 +101,75 @@
             <div class="opcion-host" id="optHost2">● <span id="txtOpt2" style="margin-left: 8px;"></span></div>
             <div class="opcion-host" id="optHost3">■ <span id="txtOpt3" style="margin-left: 8px;"></span></div>
         </div>
-        <p id="progresoRespuestasText" style="text-align: center; font-weight: bold; color: #16a085; margin: 15px 0;">Respuestas recibidas: 0</p>
-        <button class="btn-principal oculto" id="btnSiguienteHost" onclick="siguientePreguntaHost()">SIGUIENTE PREGUNTA</button>
+        <p id="progresoRespuestasText" style="text-align: center; font-weight: bold; color: #16a085; margin: 15px 0;">📩 Respuestas recibidas: 0</p>
+
+        <!-- Tabla Posiciones Cada 5 Preguntas Host -->
+        <div id="boxTablaHost" class="oculto">
+            <h3 style="color: #2c3e50; text-align: center; margin-top: 10px;">📊 TABLA DE POSICIONES 📊</h3>
+            <div class="tabla-posiciones-box" id="listaTablaHost"></div>
+        </div>
+
+        <button class="btn-principal oculto" id="btnSiguienteHost" onclick="siguientePreguntaHost()">➡️ SIGUIENTE PREGUNTA</button>
     </div>
 
     <!-- 5. UNIRSE A SALA (JUGADOR) -->
     <div class="card oculto" id="vistaUnirse">
-        <h1>Unirme a Sala</h1>
+        <h1>📱 Unirme a Sala</h1>
         <input type="text" id="txtCodigo" placeholder="CÓDIGO (4 letras)" maxlength="4" style="text-transform: uppercase;">
         <input type="text" id="txtNombre" placeholder="TU NOMBRE" maxlength="15">
         <div style="font-size: 12px; font-weight: bold; color: #34495e; text-align: left;">Elige tu avatar (Melki y amigos):</div>
         <div class="grid-avatares" id="gridAvatares"></div>
-        <button class="btn-principal" onclick="unirseSalaPartida()">ENTRAR AL JUEGO</button>
-        <button onclick="mostrarVista('vistaMenu')" style="background: #95a5a6; color: white;">Volver</button>
+        <button class="btn-principal" onclick="unirseSalaPartida()">🎮 ENTRAR AL JUEGO</button>
+        <button onclick="mostrarVista('vistaMenu')" style="background: #95a5a6; color: white;">🔙 Volver</button>
     </div>
 
     <!-- 6. ESPERA JUGADOR -->
     <div class="card oculto" id="vistaJugadorEspera">
-        <h1>¡Estás dentro! 🌿</h1>
-        <p>Mira la pantalla principal, el juego está a punto de empezar.</p>
+        <h1>¡Estás dentro! 🌿🥳</h1>
+        <p>Mira la pantalla principal, el juego está a punto de empezar. 🚀</p>
     </div>
 
-    <!-- 7. CONSOLA DE BOTONES (CELULAR) -->
-    <div class="card oculto" id="vistaJugadorConsola" style="height: 100vh; max-width: 100%; border-radius: 0; display: flex; flex-direction: column; justify-content: center;">
-        <div id="preguntaCelular" style="font-weight: bold; font-size: 18px; color: #2c3e50; margin-bottom: 5px;">¡Elige tu respuesta!</div>
-        <div id="relojCelular" style="font-size: 18px; color: #e74c3c; font-weight: bold; margin-bottom: 15px;">15s</div>
-        <div class="grid-respuestas">
-            <button class="btn-resp" id="resp0" onclick="enviarRespuesta(0)">▲</button>
-            <button class="btn-resp" id="resp1" onclick="enviarRespuesta(1)">◆</button>
-            <button class="btn-resp" id="resp2" onclick="enviarRespuesta(2)">●</button>
-            <button class="btn-resp" id="resp3" onclick="enviarRespuesta(3)">■</button>
+    <!-- 7. CONSOLA DE PREGUNTA Y BOTONES (CELULAR JUGADOR) -->
+    <div class="card oculto" id="vistaJugadorConsola" style="min-height: 90vh; justify-content: space-between; display: flex; flex-direction: column;">
+        
+        <!-- Encabezado Celular -->
+        <div class="header-celular">
+            <span id="numPreguntaCelular">Pregunta 1</span>
+            <span id="badgeRachaCelular" style="color: #e67e22;">🔥 Racha: 0</span>
+            <span id="relojCelular" style="color: #e74c3c;">⏳ 15s</span>
         </div>
+
+        <!-- Caja de Pregunta -->
+        <div class="caja-pregunta-celular" id="preguntaCelularTexto">
+            ¿Cargando pregunta...? 🤔
+        </div>
+
+        <!-- Lista de Respuestas con Texto Legible -->
+        <div class="grid-respuestas-celular">
+            <button class="btn-resp-celular" id="resp0" onclick="enviarRespuesta(0)"><span class="figura">▲</span> <span id="txtRespCelular0">--</span></button>
+            <button class="btn-resp-celular" id="resp1" onclick="enviarRespuesta(1)"><span class="figura">◆</span> <span id="txtRespCelular1">--</span></button>
+            <button class="btn-resp-celular" id="resp2" onclick="enviarRespuesta(2)"><span class="figura">●</span> <span id="txtRespCelular2">--</span></button>
+            <button class="btn-resp-celular" id="resp3" onclick="enviarRespuesta(3)"><span class="figura">■</span> <span id="txtRespCelular3">--</span></button>
+        </div>
+
+        <p id="estadoRespuestaCelular" style="font-size: 13px; font-weight: bold; color: #7f8c8d; margin-top: 10px;">👇 Selecciona tu respuesta</p>
+
+        <!-- Capa de Tabla de Posiciones cada 5 preguntas en celular -->
+        <div id="boxTablaCelular" class="oculto">
+            <h3 style="color: #2c3e50; margin: 10px 0 5px 0;">🏆 TABLA DE POSICIONES 🏆</h3>
+            <div class="tabla-posiciones-box" id="listaTablaCelular"></div>
+        </div>
+
+        <!-- Overlay Animado de Racha 🔥 -->
+        <div id="overlayRacha" class="overlay-racha oculto"></div>
     </div>
 
     <!-- 8. PODIO FINAL -->
     <div class="card oculto" id="vistaPodio" style="max-width: 600px;">
         <h1 style="color: #f1c40f; font-size: 28px;">🏆 PODIO FINAL - GENERACIÓN OASIS 🏆</h1>
-        <p>¡Gracias por participar en esta gran aventura bíblica!</p>
+        <p>¡Gracias por participar en esta gran aventura bíblica! ✨🎉</p>
         <div class="podio-container" id="contenedorPodio"></div>
-        <button class="btn-principal" onclick="location.reload()">VOLVER AL MENÚ</button>
+        <button class="btn-principal" onclick="location.reload()">🔄 VOLVER AL MENÚ</button>
     </div>
 
     <script src="preguntas.js"></script>
@@ -437,8 +177,8 @@
         const socket = io();
         let codigoSalaActual = '';
         let avatarSeleccionado = null;
-        let tiempoActualCelular = 15;
         let esHost = false;
+        let respuestaElegidaLocal = null;
 
         const avatares = ['🧭', '📖', '🌿', '🛡️', '🔥', '🕊️', '🍞', '💡'];
 
@@ -479,20 +219,22 @@
             return codigo;
         }
 
-        // --- ACCIONES ANFITRIÓN ---
+        // --- ACCIONES ANFITRIÓN (HOST) ---
         function crearSalaPartida() {
             codigoSalaActual = generarCodigoAleatorio();
             document.getElementById('codigoMostrado').innerText = codigoSalaActual;
             esHost = true;
             
-            const tematicaElegida = document.getElementById('selectTematica').value;
+            const selectElement = document.getElementById('selectTematica');
+            const tematicaElegida = selectElement ? selectElement.value : 'biblia';
             
-            // Extrae 20 preguntas aleatorias de las 100 disponibles en la temática seleccionada
-            const lista20Aleatorias = obtenerPreguntasAleatorias(tematicaElegida, 20);
+            const listaPreguntas = (typeof obtenerPreguntasAleatorias === 'function') 
+                ? obtenerPreguntasAleatorias(tematicaElegida, 20) 
+                : (typeof preguntas !== 'undefined' ? preguntas : []);
 
             socket.emit('crearSala', {
                 codigo: codigoSalaActual,
-                listaPreguntas: lista20Aleatorias
+                listaPreguntas: listaPreguntas
             });
 
             mostrarVista('vistaHostEsperando');
@@ -504,6 +246,7 @@
 
         function siguientePreguntaHost() {
             document.getElementById('btnSiguienteHost').classList.add('oculto');
+            document.getElementById('boxTablaHost').classList.add('oculto');
             socket.emit('siguientePregunta', codigoSalaActual);
         }
 
@@ -514,13 +257,14 @@
 
         // --- LANZAR PREGUNTA ---
         socket.on('lanzarPregunta', (data) => {
-            tiempoActualCelular = data.tiempo;
+            respuestaElegidaLocal = null;
 
             if (esHost) {
                 mostrarVista('vistaHostJuego');
                 document.getElementById('contadorPreguntaHost').innerText = `Pregunta ${data.indice + 1} de ${data.total}`;
                 document.getElementById('preguntaHostTexto').innerText = data.pregunta;
-                document.getElementById('progresoRespuestasText').innerText = "Respuestas recibidas: 0";
+                document.getElementById('progresoRespuestasText').innerText = "📩 Respuestas recibidas: 0";
+                document.getElementById('boxTablaHost').classList.add('oculto');
                 
                 for(let i=0; i<4; i++) {
                     document.getElementById(`txtOpt${i}`).innerText = data.opciones[i];
@@ -529,48 +273,62 @@
                 }
             } else {
                 mostrarVista('vistaJugadorConsola');
-                document.getElementById('preguntaCelular').innerText = "¡Elige tu respuesta!";
+                document.getElementById('numPreguntaCelular').innerText = `P. ${data.indice + 1}/${data.total}`;
+                document.getElementById('preguntaCelularTexto').innerText = data.pregunta;
+                document.getElementById('estadoRespuestaCelular').innerText = "👇 Selecciona tu respuesta";
+                document.getElementById('boxTablaCelular').classList.add('oculto');
+
                 for(let i=0; i<4; i++) {
                     const btn = document.getElementById('resp' + i);
-                    btn.classList.remove('desactivado');
+                    document.getElementById(`txtRespCelular${i}`).innerText = data.opciones[i];
+                    btn.className = 'btn-resp-celular';
                 }
             }
         });
 
         socket.on('actualizarTiempo', (tiempo) => {
-            tiempoActualCelular = tiempo;
             if (esHost) {
-                document.getElementById('relojHost').innerText = tiempo + "s";
+                document.getElementById('relojHost').innerText = `⏳ ${tiempo}s`;
             } else {
-                document.getElementById('relojCelular').innerText = tiempo + "s";
+                document.getElementById('relojCelular').innerText = `⏳ ${tiempo}s`;
             }
         });
 
         socket.on('actualizarProgresoRespuestas', (count) => {
             if (esHost) {
-                document.getElementById('progresoRespuestasText').innerText = `Respuestas recibidas: ${count}`;
+                document.getElementById('progresoRespuestasText').innerText = `📩 Respuestas recibidas: ${count}`;
             }
         });
 
-        // --- RESPUESTAS JUGADOR ---
+        // --- RESPUESTA EN CELULAR ---
         function enviarRespuesta(indice) {
+            if (respuestaElegidaLocal !== null) return; // Bloquear cambios
+
+            respuestaElegidaLocal = indice;
+            const tiempoRestanteActual = parseInt(document.getElementById('relojCelular').innerText.replace(/\D/g, '')) || 0;
+
             for(let i=0; i<4; i++) {
-                document.getElementById('resp' + i).classList.add('desactivado');
+                const btn = document.getElementById('resp' + i);
+                if (i === indice) {
+                    btn.classList.add('seleccionado');
+                } else {
+                    btn.classList.add('desactivado');
+                }
             }
-            document.getElementById('preguntaCelular').innerText = "¡Enviado! Esperando resultado...";
-            socket.emit('enviarRespuesta', { codigo: codigoSalaActual, opcionIndex: indice, tiempoRestante: tiempoActualCelular });
+            
+            document.getElementById('estadoRespuestaCelular').innerText = "🟡 Respuesta registrada. Espera el fin del tiempo...";
+
+            socket.emit('enviarRespuesta', {
+                codigo: codigoSalaActual,
+                opcionIndex: indice,
+                tiempoRestante: tiempoRestanteActual
+            });
         }
 
-        socket.on('resultadoIndividual', (esCorrecta) => {
-            if (!esHost) {
-                document.getElementById('preguntaCelular').innerText = esCorrecta ? "✅ ¡Correcto! +Puntos por velocidad" : "❌ ¡Respuesta Incorrecta!";
-            }
-        });
-
-        // --- REVELAR RESPUESTA AL TERMINAR TIEMPO ---
+        // --- REVELAR RESPUESTA Y RACHAS AL TERMINAR EL TIEMPO ---
         socket.on('finTiempo', (data) => {
             if (esHost) {
-                document.getElementById('relojHost').innerText = "¡Tiempo!";
+                document.getElementById('relojHost').innerText = "⏰ ¡Tiempo!";
                 for(let i=0; i<4; i++) {
                     if(i === data.correcta) {
                         document.getElementById(`optHost${i}`).classList.add('correcta-resaltada');
@@ -578,11 +336,84 @@
                         document.getElementById(`optHost${i}`).classList.add('tenue');
                     }
                 }
+
+                // Mostrar tabla de posiciones cada 5 preguntas en Host
+                if (data.esCada5) {
+                    renderizarTablaPosiciones('listaTablaHost', data.ranking);
+                    document.getElementById('boxTablaHost').classList.remove('oculto');
+                }
+
                 document.getElementById('btnSiguienteHost').classList.remove('oculto');
+
             } else {
-                document.getElementById('relojCelular').innerText = "¡Tiempo terminado!";
+                document.getElementById('relojCelular').innerText = "⏰ ¡Fin!";
+                
+                // Pintar Verde/Rojo en el celular del jugador
+                for(let i=0; i<4; i++) {
+                    const btn = document.getElementById('resp' + i);
+                    btn.classList.remove('seleccionado');
+                    
+                    if (i === data.correcta) {
+                        btn.classList.add('correcta-revelada');
+                    } else if (i === respuestaElegidaLocal) {
+                        btn.classList.add('incorrecta-revelada');
+                    } else {
+                        btn.classList.add('desactivado');
+                    }
+                }
+
+                // Obtener datos de mi socket
+                const miJugador = data.jugadores[socket.id];
+                if (miJugador) {
+                    document.getElementById('badgeRachaCelular').innerText = `🔥 Racha: ${miJugador.racha}`;
+                    
+                    const esCorrecta = (respuestaElegidaLocal === data.correcta);
+
+                    if (esCorrecta) {
+                        document.getElementById('estadoRespuestaCelular').innerText = `✅ ¡Respuesta Correcta! 🎉`;
+                        if (miJugador.racha >= 2) {
+                            dispararAnimacionRacha(`🔥 ¡RACHA DE ${miJugador.racha}! ⚡`);
+                        }
+                    } else {
+                        document.getElementById('estadoRespuestaCelular').innerText = `❌ Respuesta Incorrecta 💥`;
+                        if (miJugador.racha === 0 && respuestaElegidaLocal !== null) {
+                            dispararAnimacionRacha(`💥 ¡RACHA PERDIDA!`);
+                        }
+                    }
+                }
+
+                // Mostrar tabla cada 5 preguntas en Celular
+                if (data.esCada5) {
+                    renderizarTablaPosiciones('listaTablaCelular', data.ranking);
+                    document.getElementById('boxTablaCelular').classList.remove('oculto');
+                }
             }
         });
+
+        function dispararAnimacionRacha(mensaje) {
+            const overlay = document.getElementById('overlayRacha');
+            overlay.innerText = mensaje;
+            overlay.classList.remove('oculto');
+
+            setTimeout(() => {
+                overlay.classList.add('oculto');
+            }, 1800);
+        }
+
+        function renderizarTablaPosiciones(idContenedor, ranking) {
+            const contenedor = document.getElementById(idContenedor);
+            let html = '';
+            ranking.forEach((j, index) => {
+                let medalla = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '👤';
+                html += `
+                    <div class="fila-tabla">
+                        <span>${medalla} ${j.avatar} <b>${j.nombre}</b></span>
+                        <span>${j.puntaje} pts | 🔥 ${j.racha}</span>
+                    </div>
+                `;
+            });
+            contenedor.innerHTML = html;
+        }
 
         // --- UNIRSE A SALA ---
         function unirseSalaPartida() {
@@ -593,7 +424,7 @@
                 esHost = false;
                 socket.emit('unirseSala', { codigo, nombre, avatar: avatarSeleccionado });
             } else {
-                alert('Por favor completa todos los campos y selecciona un avatar.');
+                alert('Por favor completa todos los campos y selecciona un avatar. 😊');
             }
         }
 
@@ -628,13 +459,10 @@
                 contenedor.innerHTML = htmlPodio;
             } else {
                 mostrarVista('vistaJugadorEspera');
-                document.querySelector('#vistaJugadorEspera h1').innerText = "¡Juego Terminado! 🏆";
-                document.querySelector('#vistaJugadorEspera p').innerText = "Mira la pantalla principal para ver el podio de ganadores.";
+                document.querySelector('#vistaJugadorEspera h1').innerText = "¡Juego Terminado! 🏆🎉";
+                document.querySelector('#vistaJugadorEspera p').innerText = "Mira la pantalla principal para ver el podio de ganadores. ✨";
             }
         });
-    </script>
-</body>
-</html>
     </script>
 </body>
 </html>
