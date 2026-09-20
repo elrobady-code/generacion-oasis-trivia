@@ -10,16 +10,38 @@ app.use(express.static(__dirname));
 
 let salas = {};
 
+// Función que toma una pregunta, mezcla sus opciones al azar y recalcula el nuevo índice correcto
+function mezclarOpciones(pregunta) {
+    // 1. Guardamos el texto real de la respuesta correcta antes de mezclar
+    const textoCorrecto = pregunta.opciones[pregunta.correcta];
+    const opcionesMezcladas = [...pregunta.opciones];
+
+    // 2. Mezcla de las opciones (Algoritmo Fisher-Yates)
+    for (let i = opcionesMezcladas.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [opcionesMezcladas[i], opcionesMezcladas[j]] = [opcionesMezcladas[j], opcionesMezcladas[i]];
+    }
+
+    // 3. Retornamos la pregunta con las opciones aleatorizadas y el índice correcto actualizado
+    return {
+        ...pregunta,
+        opciones: opcionesMezcladas,
+        correcta: opcionesMezcladas.indexOf(textoCorrecto)
+    };
+}
+
 io.on('connection', (socket) => {
     // Crear sala con la lista de preguntas enviadas por el host
     socket.on('crearSala', (data) => {
         const { codigo, listaPreguntas } = data;
         
+        const preguntasBase = (listaPreguntas && listaPreguntas.length > 0) ? listaPreguntas : [
+            { pregunta: "¿Cómo se llama el guía de esta aventura bíblica?", opciones: ["Melki", "Josué", "David", "Moisés"], correcta: 0 }
+        ];
+
         salas[codigo] = {
             host: socket.id,
-            preguntas: listaPreguntas && listaPreguntas.length > 0 ? listaPreguntas : [
-                { pregunta: "¿Cómo se llama el guía de esta aventura bíblica?", opciones: ["Melki", "Josué", "David", "Moisés"], correcta: 0 }
-            ],
+            preguntas: preguntasBase,
             indicePregunta: 0,
             jugadores: {},
             tiempoRestante: 15,
@@ -54,7 +76,15 @@ io.on('connection', (socket) => {
             if (sala.intervaloPregunta) clearInterval(sala.intervaloPregunta);
 
             if (sala.indicePregunta < sala.preguntas.length) {
-                const preguntaActual = sala.preguntas[sala.indicePregunta];
+                
+                // MEZCLAR OPCIONES EN VIVO ANTES DE MOSTRAR LA PREGUNTA
+                const preguntaOriginal = sala.preguntas[sala.indicePregunta];
+                const preguntaMezclada = mezclarOpciones(preguntaOriginal);
+                
+                // Guardamos la versión mezclada para la evaluación de la ronda
+                sala.preguntas[sala.indicePregunta] = preguntaMezclada;
+                const preguntaActual = preguntaMezclada;
+
                 sala.tiempoRestante = 15;
                 sala.respuestasEstaRonda = {};
 
