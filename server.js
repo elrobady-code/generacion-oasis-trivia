@@ -11,7 +11,7 @@ app.use(express.static(__dirname));
 let salas = {};
 
 io.on('connection', (socket) => {
-    // Crear sala con temática
+    // Crear sala con la lista de 20 preguntas enviadas por el host
     socket.on('crearSala', (data) => {
         const { codigo, listaPreguntas } = data;
         
@@ -31,7 +31,7 @@ io.on('connection', (socket) => {
         socket.emit('salaCreadaExito', codigo);
     });
 
-    // Unirse a sala como jugador
+    // Unirse a la sala como participante
     socket.on('unirseSala', (data) => {
         const { codigo, nombre, avatar } = data;
         const salaUpper = codigo.toUpperCase();
@@ -47,7 +47,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Anfitrión inicia o pasa a la siguiente pregunta
+    // Anfitrión avanza o inicia la siguiente pregunta
     socket.on('siguientePregunta', (codigo) => {
         const sala = salas[codigo];
         if (sala && socket.id === sala.host) {
@@ -76,7 +76,7 @@ io.on('connection', (socket) => {
                             correcta: preguntaActual.correcta,
                             puntajes: sala.jugadores
                         });
-                        sala.indicePregunta++; // Se incrementa SOLO al finalizar la pregunta
+                        sala.indicePregunta++; // Incrementa al agotarse los 15s
                     }
                 }, 1000);
 
@@ -87,7 +87,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Recibir respuesta del jugador
+    // Procesar la respuesta del celular
     socket.on('enviarRespuesta', (data) => {
         const { codigo, opcionIndex, tiempoRestante } = data;
         const sala = salas[codigo];
