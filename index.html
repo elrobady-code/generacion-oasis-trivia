@@ -104,9 +104,9 @@
 
         .oculto { display: none !important; }
 
-        /* Avatares estilo Oasis */
-        .grid-avatares { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }
-        .avatar-opcion { background: #f5f5f5; border: 3px solid transparent; border-radius: 14px; padding: 10px; cursor: pointer; transition: 0.2s; }
+        /* Avatares Personajes Bíblicos */
+        .grid-avatares { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; max-height: 220px; overflow-y: auto; padding: 4px; }
+        .avatar-opcion { background: #f5f5f5; border: 3px solid transparent; border-radius: 14px; padding: 8px 4px; cursor: pointer; transition: 0.2s; }
         .avatar-opcion:hover { transform: scale(1.08); }
         .avatar-opcion.seleccionado { border-color: #d81b60; background: #fce4ec; transform: scale(1.1); }
 
@@ -146,7 +146,7 @@
         .overlay-racha { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.88); border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ffb300; font-size: 32px; font-weight: 900; z-index: 50; animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-shadow: 0 0 15px rgba(255, 179, 0, 0.8); }
         @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-        /* Tabla de Posiciones Cada 5 Preguntas 📊 */
+        /* Tabla de Posiciones 📊 */
         .tabla-posiciones-box { background: #fdf2f8; border: 2px solid #fbcfe8; border-radius: 16px; padding: 12px; margin: 15px 0; max-height: 220px; overflow-y: auto; text-align: left; }
         .fila-tabla { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f472b6; font-size: 15px; font-weight: 700; color: #831843; }
         .fila-tabla:last-child { border-bottom: none; }
@@ -210,7 +210,11 @@
             <div class="tabla-posiciones-box" id="listaTablaHost"></div>
         </div>
 
-        <button class="btn-principal oculto" id="btnSiguienteHost" onclick="sonar('click'); siguientePreguntaHost()">➡️ SIGUIENTE PREGUNTA</button>
+        <!-- Controles de Navegación del Host -->
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+            <button class="btn-principal oculto" id="btnSiguienteHost" onclick="sonar('click'); siguientePreguntaHost()">➡️ SIGUIENTE PREGUNTA</button>
+            <button class="btn-secundario" id="btnToggleAuto" onclick="sonar('click'); toggleAutoAvanzar()" style="padding: 12px; font-size: 14px;">⏸️ Auto-Avanzar: OFF (Modo Manual)</button>
+        </div>
     </div>
 
     <!-- 5. UNIRSE A SALA (JUGADOR) -->
@@ -219,7 +223,7 @@
         <div class="slogan">Generación Oasis Trivia</div>
         <input type="text" id="txtCodigo" placeholder="CÓDIGO (4 letras)" maxlength="4" style="text-transform: uppercase;">
         <input type="text" id="txtNombre" placeholder="TU NOMBRE" maxlength="15">
-        <div style="font-size: 13px; font-weight: 800; color: #d81b60; text-align: left; margin-top: 5px;">Elige tu avatar:</div>
+        <div style="font-size: 13px; font-weight: 800; color: #d81b60; text-align: left; margin-top: 5px;">Elige tu Personaje / Símbolo Bíblico:</div>
         <div class="grid-avatares" id="gridAvatares"></div>
         <button class="btn-principal" onclick="sonar('click'); unirseSalaPartida()">🎮 UNIRME AHORA</button>
         <button onclick="sonar('click'); mostrarVista('vistaMenu')" style="background: #9e9e9e; color: white;">🔙 Volver</button>
@@ -279,9 +283,32 @@
         let esHost = false;
         let respuestaElegidaLocal = null;
 
-        const avatares = ['👑', '📖', '💖', '🕊️', '🔥', '🛡️', '💡', '✨'];
+        // Variables de Auto-Avanzar (Host)
+        let autoAvanzar = false;
+        let timerAutoAvanzar = null;
+        let cuentaRegresivaAuto = 5;
 
-        // --- GENERADOR DE SONIDOS WEB AUDIO API (SINTETIZADOR) ---
+        // Emojis representando Personajes y Símbolos Bíblicos
+        const avatares = [
+            { emoji: '👑', nombre: 'Rey David' },
+            { emoji: '📜', nombre: 'Moisés' },
+            { emoji: '🦁', nombre: 'Daniel' },
+            { emoji: '🐋', nombre: 'Jonás' },
+            { emoji: '⛵', nombre: 'Pedro' },
+            { emoji: '🌾', nombre: 'Rut' },
+            { emoji: '🕊️', nombre: 'Espíritu Santo' },
+            { emoji: '🔥', nombre: 'Elías' },
+            { emoji: '🛡️', nombre: 'Escudo de la Fe' },
+            { emoji: '🗡️', nombre: 'Gedeón' },
+            { emoji: '🕯️', nombre: 'Profeta' },
+            { emoji: '🍇', nombre: 'Josué y Caleb' },
+            { emoji: '🐟', nombre: 'Peces y Panes' },
+            { emoji: '🌟', nombre: 'Estrella de Belén' },
+            { emoji: '🐑', nombre: 'El Buen Pastor' },
+            { emoji: '🧱', nombre: 'Nehemías' }
+        ];
+
+        // --- GENERADOR DE SONIDOS WEB AUDIO API ---
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
 
@@ -421,9 +448,10 @@
         // --- LOGICA DE NAVEGACION Y JUEGO ---
         function inicializar() {
             const grid = document.getElementById('gridAvatares');
-            grid.innerHTML = avatares.map((emoji, idx) => `
-                <div class="avatar-opcion" onclick="sonar('click'); selAvatar(${idx}, '${emoji}')" id="av-${idx}">
-                    <div style="font-size: 26px;">${emoji}</div>
+            grid.innerHTML = avatares.map((item, idx) => `
+                <div class="avatar-opcion" onclick="sonar('click'); selAvatar(${idx}, '${item.emoji}')" id="av-${idx}" title="${item.nombre}">
+                    <div style="font-size: 24px;">${item.emoji}</div>
+                    <div style="font-size: 10px; font-weight: 700; color: #555; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.nombre}</div>
                 </div>
             `).join('');
 
@@ -480,7 +508,61 @@
             socket.emit('siguientePregunta', codigoSalaActual);
         }
 
+        // Control de Auto-Avanzar (Host)
+        function toggleAutoAvanzar() {
+            autoAvanzar = !autoAvanzar;
+            actualizarBotonAuto();
+
+            const btnSiguiente = document.getElementById('btnSiguienteHost');
+
+            if (!autoAvanzar) {
+                if (timerAutoAvanzar) {
+                    clearInterval(timerAutoAvanzar);
+                    timerAutoAvanzar = null;
+                }
+                if (!btnSiguiente.classList.contains('oculto')) {
+                    btnSiguiente.innerText = '➡️ SIGUIENTE PREGUNTA';
+                }
+            } else if (autoAvanzar && !btnSiguiente.classList.contains('oculto') && !timerAutoAvanzar) {
+                iniciarConteoAutoAvanzar();
+            }
+        }
+
+        function actualizarBotonAuto() {
+            const btn = document.getElementById('btnToggleAuto');
+            if (autoAvanzar) {
+                btn.innerText = '⚡ Auto-Avanzar: ON (5s de espera)';
+                btn.style.background = 'linear-gradient(45deg, #10b981, #059669)';
+            } else {
+                btn.innerText = '⏸️ Auto-Avanzar: OFF (Modo Manual)';
+                btn.style.background = 'linear-gradient(45deg, #00acc1, #00bcd4)';
+            }
+        }
+
+        function iniciarConteoAutoAvanzar() {
+            if (timerAutoAvanzar) clearInterval(timerAutoAvanzar);
+            cuentaRegresivaAuto = 5;
+            
+            const btnSiguiente = document.getElementById('btnSiguienteHost');
+            btnSiguiente.innerText = `⏳ Siguiente en ${cuentaRegresivaAuto}s... (Click para saltar ya)`;
+
+            timerAutoAvanzar = setInterval(() => {
+                cuentaRegresivaAuto--;
+                if (cuentaRegresivaAuto > 0) {
+                    btnSiguiente.innerText = `⏳ Siguiente en ${cuentaRegresivaAuto}s... (Click para saltar ya)`;
+                } else {
+                    clearInterval(timerAutoAvanzar);
+                    timerAutoAvanzar = null;
+                    siguientePreguntaHost();
+                }
+            }, 1000);
+        }
+
         function siguientePreguntaHost() {
+            if (timerAutoAvanzar) {
+                clearInterval(timerAutoAvanzar);
+                timerAutoAvanzar = null;
+            }
             document.getElementById('btnSiguienteHost').classList.add('oculto');
             document.getElementById('boxTablaHost').classList.add('oculto');
             socket.emit('siguientePregunta', codigoSalaActual);
@@ -495,12 +577,18 @@
         socket.on('lanzarPregunta', (data) => {
             respuestaElegidaLocal = null;
 
+            if (timerAutoAvanzar) {
+                clearInterval(timerAutoAvanzar);
+                timerAutoAvanzar = null;
+            }
+
             if (esHost) {
                 mostrarVista('vistaHostJuego');
                 document.getElementById('contadorPreguntaHost').innerText = `Pregunta ${data.indice + 1} de ${data.total}`;
                 document.getElementById('preguntaHostTexto').innerText = data.pregunta;
                 document.getElementById('progresoRespuestasText').innerText = "📩 Respuestas recibidas: 0";
                 document.getElementById('boxTablaHost').classList.add('oculto');
+                document.getElementById('btnSiguienteHost').classList.add('oculto');
                 
                 for(let i=0; i<4; i++) {
                     document.getElementById(`txtOpt${i}`).innerText = data.opciones[i];
@@ -581,7 +669,13 @@
                     document.getElementById('boxTablaHost').classList.remove('oculto');
                 }
 
-                document.getElementById('btnSiguienteHost').classList.remove('oculto');
+                const btnSiguiente = document.getElementById('btnSiguienteHost');
+                btnSiguiente.classList.remove('oculto');
+                btnSiguiente.innerText = '➡️ SIGUIENTE PREGUNTA';
+
+                if (autoAvanzar) {
+                    iniciarConteoAutoAvanzar();
+                }
 
             } else {
                 document.getElementById('relojCelular').innerText = "⏰ ¡Fin!";
@@ -661,7 +755,7 @@
                 esHost = false;
                 socket.emit('unirseSala', { codigo, nombre, avatar: avatarSeleccionado });
             } else {
-                alert('Por favor completa los campos y selecciona tu avatar. 👑');
+                alert('Por favor completa los campos y selecciona tu personaje bíblico. 👑');
             }
         }
 
