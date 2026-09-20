@@ -10,39 +10,16 @@ app.use(express.static(__dirname));
 
 let salas = {};
 
-// Mezcla las opciones al azar y recalcula el índice de la respuesta correcta
-function mezclarOpcionesPregunta(q) {
-    const respuestaCorrectaTexto = q.opciones[q.correcta];
-    const opcionesMezcladas = [...q.opciones];
-
-    // Algoritmo Fisher-Yates para desordenar
-    for (let i = opcionesMezcladas.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [opcionesMezcladas[i], opcionesMezcladas[j]] = [opcionesMezcladas[j], opcionesMezcladas[i]];
-    }
-
-    return {
-        ...q,
-        opciones: opcionesMezcladas,
-        correcta: opcionesMezcladas.indexOf(respuestaCorrectaTexto)
-    };
-}
-
 io.on('connection', (socket) => {
     // Crear sala con la lista de preguntas enviadas por el host
     socket.on('crearSala', (data) => {
         const { codigo, listaPreguntas } = data;
         
-        const preguntasBase = listaPreguntas && listaPreguntas.length > 0 ? listaPreguntas : [
-            { pregunta: "¿Cómo se llama el guía de esta aventura bíblica?", opciones: ["Melki", "Josué", "David", "Moisés"], correcta: 0 }
-        ];
-
-        // Aleatorizar el orden de las opciones para todas las preguntas de la sala
-        const preguntasProcesadas = preguntasBase.map(q => mezclarOpcionesPregunta(q));
-
         salas[codigo] = {
             host: socket.id,
-            preguntas: preguntasProcesadas,
+            preguntas: listaPreguntas && listaPreguntas.length > 0 ? listaPreguntas : [
+                { pregunta: "¿Cómo se llama el guía de esta aventura bíblica?", opciones: ["Melki", "Josué", "David", "Moisés"], correcta: 0 }
+            ],
             indicePregunta: 0,
             jugadores: {},
             tiempoRestante: 15,
